@@ -3,7 +3,10 @@ package common
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
+
+	"github.com/elastic/beats/libbeat/logp"
 )
 
 // Commonly used map of things, used in JSON creation and the like.
@@ -37,6 +40,34 @@ func (m MapStr) Update(d MapStr) {
 	for k, v := range d {
 		m[k] = v
 	}
+}
+
+func (m MapStr) Get(key string) interface{} {
+	if val, ok := m[key]; ok {
+		return val
+	}
+	return nil
+}
+
+func (m MapStr) Delete(key string) bool {
+	key_parts := strings.Split(key, ".")
+	key_len := len(key_parts)
+
+	logp.Debug("filter", "key parts %v", key_parts)
+	curm := m
+	logp.Debug("filter", "map=%v", m)
+	for i := 0; i < key_len-1; i++ {
+		key_part := key_parts[i]
+
+		if _, ok := curm[key_part]; ok {
+			curm = curm[key_part].(MapStr)
+		} else {
+			return false
+		}
+	}
+	delete(curm, key_parts[key_len-1])
+	logp.Debug("filter", "map=%v", curm)
+	return true
 }
 
 // Checks if a timestamp field exists and if it doesn't it adds

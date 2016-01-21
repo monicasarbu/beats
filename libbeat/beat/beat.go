@@ -29,11 +29,11 @@ import (
 	"runtime"
 
 	"github.com/elastic/beats/libbeat/cfgfile"
+	"github.com/elastic/beats/libbeat/filter"
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/elastic/beats/libbeat/outputs"
 	"github.com/elastic/beats/libbeat/publisher"
 	"github.com/elastic/beats/libbeat/service"
-
 	"github.com/satori/go.uuid"
 )
 
@@ -71,6 +71,7 @@ type BeatConfig struct {
 	Output  map[string]outputs.MothershipConfig
 	Logging logp.Logging
 	Shipper publisher.ShipperConfig
+	Filter  []filter.FilterConfig
 }
 
 var printVersion *bool
@@ -192,9 +193,18 @@ func (b *Beat) LoadConfig() {
 		os.Exit(1)
 	}
 
+	filters, err := filter.New(b.Config.Filter)
+	if err != nil {
+		fmt.Printf("Error Initialising filters: %v\n", err)
+		logp.Critical(err.Error())
+		os.Exit(1)
+	}
+	pub.RegisterFilter(filters)
+
 	b.Events = pub.Client()
 
 	logp.Info("Init Beat: %s; Version: %s", b.Name, b.Version)
+	logp.Info("Filter %v", filters)
 }
 
 // Run calls the beater Setup and Run methods. In case of errors

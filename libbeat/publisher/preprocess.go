@@ -38,7 +38,7 @@ func (p *preprocessor) onMessage(m message) {
 
 	for i, event := range events {
 		// validate some required field
-		if err := filterEvent(event); err != nil {
+		if err := validateEvent(event); err != nil {
 			logp.Err("Publishing event failed: %v", err)
 			ignore = append(ignore, i)
 			continue
@@ -59,6 +59,11 @@ func (p *preprocessor) onMessage(m message) {
 		}
 		if len(publisher.tags) > 0 {
 			event["tags"] = publisher.tags
+		}
+
+		// filter the event
+		if err := publisher.Filters.Filter(&event); err != nil {
+			logp.Err("Failed to filter the event: %v", err)
 		}
 
 		if logp.IsDebug("publish") {
@@ -99,9 +104,9 @@ func (p *preprocessor) onMessage(m message) {
 	}
 }
 
-// filterEvent validates an event for common required fields with types.
+// validateEvent validates an event for common required fields with types.
 // If event is to be filtered out the reason is returned as error.
-func filterEvent(event common.MapStr) error {
+func validateEvent(event common.MapStr) error {
 	ts, ok := event["@timestamp"]
 	if !ok {
 		return errors.New("Missing '@timestamp' field from event")

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/elastic/beats/libbeat/common"
+	"github.com/elastic/beats/libbeat/filter"
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/elastic/beats/libbeat/outputs"
 	"github.com/nranchev/go-libGeoIP"
@@ -57,6 +58,7 @@ type PublisherType struct {
 	TopologyOutput outputs.TopologyOutputer
 	IgnoreOutgoing bool
 	GeoLite        *libgeo.GeoIP
+	Filters        *filter.FilterList
 
 	RefreshTopologyTimer <-chan time.Time
 
@@ -169,6 +171,12 @@ func (publisher *PublisherType) PublishTopology(params ...string) error {
 		}
 	}
 
+	return nil
+}
+
+func (publisher *PublisherType) RegisterFilter(filters *filter.FilterList) error {
+
+	publisher.Filters = filters
 	return nil
 }
 
