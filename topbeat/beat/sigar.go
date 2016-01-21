@@ -14,35 +14,23 @@ type SystemLoad struct {
 }
 
 type CpuTimes struct {
-	User          uint64  `json:"user"`
+	Cpu           sigar.Cpu
 	UserPercent   float64 `json:"user_p"`
-	Nice          uint64  `json:"nice"`
-	System        uint64  `json:"system"`
 	SystemPercent float64 `json:"system_p"`
-	Idle          uint64  `json:"idle"`
-	IOWait        uint64  `json:"iowait"`
-	Irq           uint64  `json:"irq"`
-	SoftIrq       uint64  `json:"softirq"`
-	Steal         uint64  `json:"steal"`
 }
 
 type MemStat struct {
-	Total             uint64  `json:"total"`
-	Used              uint64  `json:"used"`
-	Free              uint64  `json:"free"`
+	Mem               sigar.Mem
 	UsedPercent       float64 `json:"used_p"`
-	ActualUsed        uint64  `json:"actual_used"`
-	ActualFree        uint64  `json:"actual_free"`
 	ActualUsedPercent float64 `json:"actual_used_p"`
 }
 
 type SwapStat struct {
-	Total       uint64  `json:"total"`
-	Used        uint64  `json:"used"`
-	Free        uint64  `json:"free"`
+	Swap        sigar.Swap
 	UsedPercent float64 `json:"used_p"`
 }
 
+/*
 type ProcMemStat struct {
 	Size       uint64  `json:"size"`
 	Rss        uint64  `json:"rss"`
@@ -58,33 +46,30 @@ type ProcCpuTime struct {
 	Start        string  `json:"start_time"`
 }
 
+*/
 type Process struct {
-	Pid   int          `json:"pid"`
-	Ppid  int          `json:"ppid"`
-	Name  string       `json:"name"`
-	State string       `json:"state"`
-	Mem   *ProcMemStat `json:"mem"`
-	Cpu   *ProcCpuTime `json:"cpu"`
+	Pid   int    `json:"pid"`
+	Ppid  int    `json:"ppid"`
+	Name  string `json:"name"`
+	State string `json:"state"`
+	Mem   sigar.ProcMem
+	Cpu   sigar.ProcTime
 	ctime time.Time
 }
 
 type FileSystemStat struct {
 	DevName     string  `json:"device_name"`
-	Total       uint64  `json:"total"`
-	Used        uint64  `json:"used"`
-	UsedPercent float64 `json:"used_p"`
-	Free        uint64  `json:"free"`
-	Avail       uint64  `json:"avail"`
-	Files       uint64  `json:"files"`
-	FreeFiles   uint64  `json:"free_files"`
 	Mount       string  `json:"mount_point"`
+	UsedPercent float64 `json:"used_p"`
+	Stat        sigar.FileSystemUsage
 	ctime       time.Time
 }
 
+/*
 func (f *FileSystemStat) String() string {
 
 	return fmt.Sprintf("device name: %s, total: %d, used %d, used pct %.2f, free: %d, avail: %d, files: %d, free files: %d, mount: %s",
-		f.DevName, f.Total, f.Used, f.UsedPercent, f.Free, f.Avail, f.Files, f.FreeFiles, f.Mount)
+		f.DevName, f.Stat.Mount, f.Stat.Used, f.Stat.UsedPercent, f.Stat.Free, f.Stat.Avail, f.Stat.Files, f.Stat.FreeFiles)
 }
 
 func (p *Process) String() string {
@@ -105,8 +90,8 @@ func (t *ProcCpuTime) String() string {
 
 func (m *MemStat) String() string {
 
-	return fmt.Sprintf("%d total, %d used, %d actual used, %d free, %d actual free", m.Total, m.Used, m.ActualUsed,
-		m.Free, m.ActualFree)
+	return fmt.Sprintf("%d total, %d used, %d actual used, %d free, %d actual free", m.Mem.Total, m.Mem.Used, m.Mem.ActualUsed,
+		m.Mem.Free, m.Mem.ActualFree)
 }
 
 func (t *SystemLoad) String() string {
@@ -120,6 +105,7 @@ func (t *CpuTimes) String() string {
 		t.User, t.System, t.Nice, t.Idle, t.IOWait, t.Irq, t.SoftIrq, t.Steal)
 
 }
+*/
 func GetSystemLoad() (*SystemLoad, error) {
 
 	concreteSigar := sigar.ConcreteSigar{}
@@ -143,16 +129,20 @@ func GetCpuTimes() (*CpuTimes, error) {
 		return nil, err
 	}
 
-	return &CpuTimes{
-		User:    cpu.User,
-		Nice:    cpu.Nice,
-		System:  cpu.Sys,
-		Idle:    cpu.Idle,
-		IOWait:  cpu.Wait,
-		Irq:     cpu.Irq,
-		SoftIrq: cpu.SoftIrq,
-		Steal:   cpu.Stolen,
-	}, nil
+	return &CpuTimes{Cpu: cpu}, nil
+
+	/*
+		return &CpuTimes{
+			User:    cpu.User,
+			Nice:    cpu.Nice,
+			System:  cpu.Sys,
+			Idle:    cpu.Idle,
+			IOWait:  cpu.Wait,
+			Irq:     cpu.Irq,
+			SoftIrq: cpu.SoftIrq,
+			Steal:   cpu.Stolen,
+		}, nil
+	*/
 }
 
 func GetCpuTimesList() ([]CpuTimes, error) {
@@ -166,16 +156,7 @@ func GetCpuTimesList() ([]CpuTimes, error) {
 	cpuTimes := make([]CpuTimes, len(cpuList.List))
 
 	for i, cpu := range cpuList.List {
-		cpuTimes[i] = CpuTimes{
-			User:    cpu.User,
-			Nice:    cpu.Nice,
-			System:  cpu.Sys,
-			Idle:    cpu.Idle,
-			IOWait:  cpu.Wait,
-			Irq:     cpu.Irq,
-			SoftIrq: cpu.SoftIrq,
-			Steal:   cpu.Stolen,
-		}
+		cpuTimes[i] = CpuTimes{Cpu: cpu}
 	}
 
 	return cpuTimes, nil
@@ -189,13 +170,7 @@ func GetMemory() (*MemStat, error) {
 		return nil, err
 	}
 
-	return &MemStat{
-		Total:      mem.Total,
-		Used:       mem.Used,
-		Free:       mem.Free,
-		ActualFree: mem.ActualFree,
-		ActualUsed: mem.ActualUsed,
-	}, nil
+	return &MemStat{Mem: mem}, nil
 }
 
 func GetSwap() (*SwapStat, error) {
@@ -206,11 +181,7 @@ func GetSwap() (*SwapStat, error) {
 		return nil, err
 	}
 
-	return &SwapStat{
-		Total: swap.Total,
-		Used:  swap.Used,
-		Free:  swap.Free,
-	}, nil
+	return &SwapStat{Swap: swap}, nil
 
 }
 
@@ -246,7 +217,6 @@ func GetProcess(pid int) (*Process, error) {
 	state := sigar.ProcState{}
 	mem := sigar.ProcMem{}
 	cpu := sigar.ProcTime{}
-
 	err := state.Get(pid)
 	if err != nil {
 		return nil, fmt.Errorf("Error getting state info: %v", err)
@@ -267,17 +237,8 @@ func GetProcess(pid int) (*Process, error) {
 		Ppid:  state.Ppid,
 		Name:  state.Name,
 		State: getProcState(byte(state.State)),
-		Mem: &ProcMemStat{
-			Size:  mem.Size,
-			Rss:   mem.Resident,
-			Share: mem.Share,
-		},
-		Cpu: &ProcCpuTime{
-			Start:  cpu.FormatStartTime(),
-			Total:  cpu.Total,
-			User:   cpu.User,
-			System: cpu.Sys,
-		},
+		Mem:   mem,
+		Cpu:   cpu,
 	}
 	proc.ctime = time.Now()
 
@@ -304,14 +265,9 @@ func GetFileSystemStat(fs sigar.FileSystem) (*FileSystemStat, error) {
 	}
 
 	filesystem := FileSystemStat{
-		DevName:   fs.DevName,
-		Total:     stat.Total,
-		Free:      stat.Free,
-		Avail:     stat.Avail,
-		Used:      stat.Used,
-		Files:     stat.Files,
-		FreeFiles: stat.FreeFiles,
-		Mount:     fs.DirName,
+		DevName: fs.DevName,
+		Mount:   fs.DirName,
+		Stat:    stat,
 	}
 
 	return &filesystem, nil

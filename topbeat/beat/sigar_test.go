@@ -32,8 +32,8 @@ func TestGetCpuTimes(t *testing.T) {
 	assert.NotNil(t, cpu_stat)
 	assert.Nil(t, err)
 
-	assert.True(t, (cpu_stat.User > 0))
-	assert.True(t, (cpu_stat.System > 0))
+	assert.True(t, (cpu_stat.Cpu.User > 0))
+	assert.True(t, (cpu_stat.Cpu.Sys > 0))
 
 }
 
@@ -43,11 +43,11 @@ func TestGetMemory(t *testing.T) {
 	assert.NotNil(t, mem)
 	assert.Nil(t, err)
 
-	assert.True(t, (mem.Total > 0))
-	assert.True(t, (mem.Used > 0))
-	assert.True(t, (mem.Free >= 0))
-	assert.True(t, (mem.ActualFree >= 0))
-	assert.True(t, (mem.ActualUsed > 0))
+	assert.True(t, (mem.Mem.Total > 0))
+	assert.True(t, (mem.Mem.Used > 0))
+	assert.True(t, (mem.Mem.Free >= 0))
+	assert.True(t, (mem.Mem.ActualFree >= 0))
+	assert.True(t, (mem.Mem.ActualUsed > 0))
 }
 
 func TestGetSwap(t *testing.T) {
@@ -61,9 +61,9 @@ func TestGetSwap(t *testing.T) {
 	assert.NotNil(t, swap)
 	assert.Nil(t, err)
 
-	assert.True(t, (swap.Total >= 0))
-	assert.True(t, (swap.Used >= 0))
-	assert.True(t, (swap.Free >= 0))
+	assert.True(t, (swap.Swap.Total >= 0))
+	assert.True(t, (swap.Swap.Used >= 0))
+	assert.True(t, (swap.Swap.Free >= 0))
 }
 
 func TestPids(t *testing.T) {
@@ -97,14 +97,14 @@ func TestGetProcess(t *testing.T) {
 
 		// Memory Checks
 		assert.True(t, (process.Mem.Size >= 0))
-		assert.True(t, (process.Mem.Rss >= 0))
+		assert.True(t, (process.Mem.Resident >= 0))
 		assert.True(t, (process.Mem.Share >= 0))
 
 		// CPU Checks
-		assert.True(t, (len(process.Cpu.Start) > 0))
+		assert.True(t, (process.Cpu.StartTime > 0))
 		assert.True(t, (process.Cpu.Total >= 0))
 		assert.True(t, (process.Cpu.User >= 0))
-		assert.True(t, (process.Cpu.System >= 0))
+		assert.True(t, (process.Cpu.Sys >= 0))
 
 		assert.True(t, (process.ctime.Unix() <= time.Now().Unix()))
 
@@ -139,9 +139,9 @@ func TestFileSystemList(t *testing.T) {
 		stat, err := GetFileSystemStat(fs)
 		assert.NoError(t, err)
 
-		assert.True(t, (stat.Total >= 0))
-		assert.True(t, (stat.Free >= 0))
-		assert.True(t, (stat.Avail >= 0))
-		assert.True(t, (stat.Used >= 0))
+		assert.True(t, (stat.Stat.Total >= 0))
+		assert.True(t, (stat.Stat.Free >= 0))
+		assert.True(t, (stat.Stat.Avail >= 0))
+		assert.True(t, (stat.Stat.Used >= 0))
 	}
 }

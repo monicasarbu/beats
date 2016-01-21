@@ -202,9 +202,6 @@ func (t *Topbeat) exportProcStats() error {
 
 		if t.MatchProcess(process.Name) {
 
-			t.addProcCpuPercentage(process)
-			t.addProcMemPercentage(process, 0 /*read total mem usage */)
-
 			newProcs[process.Pid] = process
 
 			event := common.MapStr{
@@ -215,10 +212,22 @@ func (t *Topbeat) exportProcStats() error {
 					"ppid":  process.Ppid,
 					"name":  process.Name,
 					"state": process.State,
-					"mem":   process.Mem,
-					"cpu":   process.Cpu,
+					"mem": common.MapStr{
+						"size":  process.Mem.Size,
+						"rss":   process.Mem.Resident,
+						"rss_p": t.getProcMemPercentage(process, 0 /* read total mem usage */),
+						"share": process.Mem.Share,
+					},
+					"cpu": common.MapStr{
+						"user":       process.Cpu.User,
+						"system":     process.Cpu.Sys,
+						"total":      process.Cpu.Total,
+						"total_p":    t.getProcCpuPercentage(process),
+						"start_time": process.Cpu.FormatStartTime(),
+					},
 				},
 			}
+
 			t.events.PublishEvent(event)
 		}
 	}
@@ -240,13 +249,6 @@ func (t *Topbeat) exportSystemStats() error {
 
 	t.addCpuPercentage(cpu_stat)
 
-	cpu_core_stat, err := GetCpuTimesList()
-	if err != nil {
-		logp.Warn("Getting cpu core times: %v", err)
-		return err
-	}
-	t.addCpuPercentageList(cpu_core_stat)
-
 	mem_stat, err := GetMemory()
 	if err != nil {
 		logp.Warn("Getting memory details: %v", err)
@@ -265,17 +267,59 @@ func (t *Topbeat) exportSystemStats() error {
 		"@timestamp": common.Time(time.Now()),
 		"type":       "system",
 		"load":       load_stat,
-		"cpu":        cpu_stat,
-		"mem":        mem_stat,
-		"swap":       swap_stat,
+		"cpu": common.MapStr{
+			"user":     cpu_stat.Cpu.User,
+			"system":   cpu_stat.Cpu.Sys,
+			"nice":     cpu_stat.Cpu.Nice,
+			"idle":     cpu_stat.Cpu.Idle,
+			"iowait":   cpu_stat.Cpu.Wait,
+			"irq":      cpu_stat.Cpu.Irq,
+			"softirq":  cpu_stat.Cpu.SoftIrq,
+			"steal":    cpu_stat.Cpu.Stolen,
+			"user_p":   cpu_stat.UserPercent,
+			"system_p": cpu_stat.SystemPercent,
+		},
+		"mem": common.MapStr{
+			"total":         mem_stat.Mem.Total,
+			"used":          mem_stat.Mem.Used,
+			"free":          mem_stat.Mem.Free,
+			"actual_used":   mem_stat.Mem.ActualUsed,
+			"actual_free":   mem_stat.Mem.ActualFree,
+			"used_p":        mem_stat.UsedPercent,
+			"actual_used_p": mem_stat.ActualUsedPercent,
+		},
+		"swap": common.MapStr{
+			"total":  swap_stat.Swap.Total,
+			"used":   swap_stat.Swap.Used,
+			"free":   swap_stat.Swap.Free,
+			"used_p": swap_stat.UsedPercent,
+		},
 	}
 
 	if t.cpuPerCore {
 
+		cpu_core_stat, err := GetCpuTimesList()
+		if err != nil {
+			logp.Warn("Getting cpu core times: %v", err)
+			return err
+		}
+		t.addCpuPercentageList(cpu_core_stat)
+
 		cpus := common.MapStr{}
 
 		for coreNumber, stat := range cpu_core_stat {
-			cpus["cpu"+strconv.Itoa(coreNumber)] = stat
+			cpus["cpu"+strconv.Itoa(coreNumber)] = common.MapStr{
+				"user":     stat.Cpu.User,
+				"system":   stat.Cpu.Sys,
+				"nice":     stat.Cpu.Nice,
+				"idle":     stat.Cpu.Idle,
+				"iowait":   stat.Cpu.Wait,
+				"irq":      stat.Cpu.Irq,
+				"softirq":  stat.Cpu.SoftIrq,
+				"steal":    stat.Cpu.Stolen,
+				"user_p":   stat.UserPercent,
+				"system_p": stat.SystemPercent,
+			}
 		}
 		event["cpus"] = cpus
 	}
@@ -309,7 +353,17 @@ func collectFileSystemStats(fss []sigar.FileSystem) []common.MapStr {
 		event := common.MapStr{
 			"@timestamp": common.Time(time.Now()),
 			"type":       "filesystem",
-			"fs":         fsStat,
+			"fs": common.MapStr{
+				"device_name": fsStat.DevName,
+				"mount_point": fsStat.Mount,
+				"total":       fsStat.Stat.Total,
+				"used":        fsStat.Stat.Used,
+				"free":        fsStat.Stat.Free,
+				"avail":       fsStat.Stat.Avail,
+				"files":       fsStat.Stat.Files,
+				"free_files":  fsStat.Stat.FreeFiles,
+				"used_p":      fsStat.UsedPercent,
+			},
 		}
 		events = append(events, event)
 	}
@@ -329,32 +383,32 @@ func (t *Topbeat) MatchProcess(name string) bool {
 
 func (t *Topbeat) addMemPercentage(m *MemStat) {
 
-	if m.Total == 0 {
+	if m.Mem.Total == 0 {
 		return
 	}
 
-	perc := float64(m.Used) / float64(m.Total)
+	perc := float64(m.Mem.Used) / float64(m.Mem.Total)
 	m.UsedPercent = Round(perc, .5, 2)
 
-	actual_perc := float64(m.ActualUsed) / float64(m.Total)
+	actual_perc := float64(m.Mem.ActualUsed) / float64(m.Mem.Total)
 	m.ActualUsedPercent = Round(actual_perc, .5, 2)
 }
 
 func (t *Topbeat) addSwapPercentage(s *SwapStat) {
-	if s.Total == 0 {
+	if s.Swap.Total == 0 {
 		return
 	}
 
-	perc := float64(s.Used) / float64(s.Total)
+	perc := float64(s.Swap.Used) / float64(s.Swap.Total)
 	s.UsedPercent = Round(perc, .5, 2)
 }
 
 func addFileSystemUsedPercentage(f *FileSystemStat) {
-	if f.Total == 0 {
+	if f.Stat.Total == 0 {
 		return
 	}
 
-	perc := float64(f.Used) / float64(f.Total)
+	perc := float64(f.Stat.Used) / float64(f.Stat.Total)
 	f.UsedPercent = Round(perc, .5, 2)
 }
 
@@ -363,7 +417,7 @@ func (t *Topbeat) addCpuPercentage(t2 *CpuTimes) {
 	t1 := t.lastCpuTimes
 
 	if t1 != nil && t2 != nil {
-		all_delta := t2.sum() - t1.sum()
+		all_delta := t2.Cpu.Total() - t1.Cpu.Total()
 
 		calculate := func(field2 uint64, field1 uint64) float64 {
 
@@ -373,8 +427,8 @@ func (t *Topbeat) addCpuPercentage(t2 *CpuTimes) {
 			return Round(perc, .5, 2)
 		}
 
-		t2.UserPercent = calculate(t2.User, t1.User)
-		t2.SystemPercent = calculate(t2.System, t1.System)
+		t2.UserPercent = calculate(t2.Cpu.User, t1.Cpu.User)
+		t2.SystemPercent = calculate(t2.Cpu.Sys, t1.Cpu.Sys)
 	}
 
 	t.lastCpuTimes = t2
@@ -396,9 +450,9 @@ func (t *Topbeat) addCpuPercentageList(t2 []CpuTimes) {
 		}
 
 		for i := 0; i < len(t1); i++ {
-			all_delta := t2[i].sum() - t1[i].sum()
-			t2[i].UserPercent = calculate(t2[i].User, t1[i].User, all_delta)
-			t2[i].SystemPercent = calculate(t2[i].System, t1[i].System, all_delta)
+			all_delta := t2[i].Cpu.Total() - t1[i].Cpu.Total()
+			t2[i].UserPercent = calculate(t2[i].Cpu.User, t1[i].Cpu.User, all_delta)
+			t2[i].SystemPercent = calculate(t2[i].Cpu.Sys, t1[i].Cpu.Sys, all_delta)
 		}
 
 	}
@@ -407,7 +461,7 @@ func (t *Topbeat) addCpuPercentageList(t2 []CpuTimes) {
 
 }
 
-func (t *Topbeat) addProcMemPercentage(proc *Process, total_phymem uint64) {
+func (t *Topbeat) getProcMemPercentage(proc *Process, total_phymem uint64) float64 {
 
 	// in unit tests, total_phymem is set to a value greater than zero
 
@@ -415,30 +469,31 @@ func (t *Topbeat) addProcMemPercentage(proc *Process, total_phymem uint64) {
 		mem_stat, err := GetMemory()
 		if err != nil {
 			logp.Warn("Getting memory details: %v", err)
-			return
+			return 0
 		}
-		total_phymem = mem_stat.Total
+		total_phymem = mem_stat.Mem.Total
 	}
 
-	perc := (float64(proc.Mem.Rss) / float64(total_phymem))
+	perc := (float64(proc.Mem.Resident) / float64(total_phymem))
 
-	proc.Mem.RssPercent = Round(perc, .5, 2)
+	return Round(perc, .5, 2)
 }
 
-func (t *Topbeat) addProcCpuPercentage(proc *Process) {
+func (t *Topbeat) getProcCpuPercentage(proc *Process) float64 {
 
 	oproc, ok := t.procsMap[proc.Pid]
 	if ok {
 
-		delta_proc := (proc.Cpu.User - oproc.Cpu.User) + (proc.Cpu.System - oproc.Cpu.System)
+		delta_proc := (proc.Cpu.User - oproc.Cpu.User) + (proc.Cpu.Sys - oproc.Cpu.Sys)
 		delta_time := proc.ctime.Sub(oproc.ctime).Nanoseconds() / 1e6 // in milliseconds
 		perc := float64(delta_proc) / float64(delta_time)
 
 		t.procsMap[proc.Pid] = proc
 
-		proc.Cpu.TotalPercent = Round(perc, .5, 4)
+		return Round(perc, .5, 4)
 
 	}
+	return 0
 }
 
 func Round(val float64, roundOn float64, places int) (newVal float64) {
@@ -453,8 +508,4 @@ func Round(val float64, roundOn float64, places int) (newVal float64) {
 	}
 	newVal = round / pow
 	return
-}
-
-func (t *CpuTimes) sum() uint64 {
-	return t.User + t.Nice + t.System + t.Idle + t.IOWait + t.Irq + t.SoftIrq + t.Steal
 }
