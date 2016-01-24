@@ -24,15 +24,17 @@ type FilterConfig struct {
 }
 
 type FilterRule interface {
-	Filter(event *common.MapStr) error
+	Filter(event *common.MapStr)
 	String() string
 }
 
+/* extends FilterRule */
 type IncludeFields struct {
 	Fields []string
 	// condition
 }
 
+/* extend FilterRule */
 type DropFields struct {
 	Fields []string
 	// condition
@@ -42,20 +44,22 @@ type FilterList struct {
 	filters []FilterRule
 }
 
+// fields that should be always exported
+var ReadOnlyFields = []string{"@timestamp", "beat", "type"}
+
+/* FilterList methods */
 func New(config []FilterConfig) (*FilterList, error) {
 
 	Filters := &FilterList{}
 	Filters.filters = []FilterRule{}
 
 	for i, filterConfig := range config {
-		logp.Debug("filter", "drop fields=%v include fields=%v", filterConfig.DropFields, filterConfig.IncludeFields)
-
 		if filterConfig.DropFields != nil {
-			Filters.Register(i, &DropFields{Fields: filterConfig.DropFields.Fields})
+			Filters.Register(i, NewDropFields(filterConfig.DropFields.Fields))
 		}
 
 		if filterConfig.IncludeFields != nil {
-			Filters.Register(i, &IncludeFields{Fields: filterConfig.IncludeFields.Fields})
+			Filters.Register(i, NewIncludeFields(filterConfig.IncludeFields.Fields))
 		}
 	}
 
@@ -65,22 +69,19 @@ func New(config []FilterConfig) (*FilterList, error) {
 
 func (filters *FilterList) Register(index int, filter FilterRule) {
 	filters.filters = append(filters.filters, filter)
+	logp.Debug("filter", "Register filter: %v", filter)
 }
 
 func (filters *FilterList) Get(index int) FilterRule {
 	return filters.filters[index]
 }
 
-func (filters *FilterList) Filter(event *common.MapStr) error {
+func (filters *FilterList) Filter(event *common.MapStr) {
 
 	for _, filter := range filters.filters {
-		if err := filter.Filter(event); err != nil {
-			logp.Err("Failed to filter the event: %v", err)
-			return err
-		}
+		filter.Filter(event)
 	}
 
-	return nil
 }
 
 func (filters *FilterList) String() string {
@@ -93,26 +94,60 @@ func (filters *FilterList) String() string {
 	return strings.Join(s, ", ")
 }
 
-func (f *IncludeFields) Filter(event *common.MapStr) error {
+/* IncludeFields methods */
+func NewIncludeFields(fields []string) *IncludeFields {
 
-	logp.Debug("filter", "call include_fields\n")
-
-	return nil
+	/* add read only fields if they are not yet */
+	for _, readOnly := range ReadOnlyFields {
+		found := false
+		for _, field := range fields {
+			if readOnly == field {
+				found = true
+			}
+		}
+		if !found {
+			fields = append(fields, readOnly)
+		}
+	}
+	return &IncludeFields{Fields: fields}
 }
+
+func (f *IncludeFields) Filter(event *common.MapStr) {
+
+	newEvent := &common.MapStr{}
+
+	for _, field := range f.Fields {
+		newEvent = event.Copy(*newEvent, field)
+	}
+
+	logp.Debug("filter", "after applying include_fields: %v\n", newEvent)
+	event = newEvent
+}
+
 func (f *IncludeFields) String() string {
 	return "include_fields=" + strings.Join(f.Fields, ", ")
 }
 
-func (f *DropFields) Filter(event *common.MapStr) error {
+/* DropFields methods */
+func NewDropFields(fields []string) *DropFields {
 
-	logp.Debug("filter", "call drop_fields\n %v\n", *event)
+	/* remove read only fields */
+	for _, readOnly := range ReadOnlyFields {
+		for i, field := range fields {
+			if readOnly == field {
+				fields = append(fields[:i], fields[i+1:]...)
+			}
+		}
+	}
+	return &DropFields{Fields: fields}
+}
+
+func (f *DropFields) Filter(event *common.MapStr) {
 
 	for _, field := range f.Fields {
 		event.Delete(field)
 
 	}
-	logp.Debug("filter", "after dropping %v", *event)
-	return nil
 }
 
 func (f *DropFields) String() string {

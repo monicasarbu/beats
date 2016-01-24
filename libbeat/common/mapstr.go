@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	"github.com/elastic/beats/libbeat/logp"
 )
 
 // Commonly used map of things, used in JSON creation and the like.
@@ -49,25 +47,48 @@ func (m MapStr) Get(key string) interface{} {
 	return nil
 }
 
-func (m MapStr) Delete(key string) bool {
-	key_parts := strings.Split(key, ".")
-	key_len := len(key_parts)
+func (m MapStr) Delete(key string) *MapStr {
+	keyParts := strings.Split(key, ".")
+	keysLen := len(keyParts)
 
-	logp.Debug("filter", "key parts %v", key_parts)
-	curm := m
-	logp.Debug("filter", "map=%v", m)
-	for i := 0; i < key_len-1; i++ {
-		key_part := key_parts[i]
+	mapp := m
+	for i := 0; i < keysLen-1; i++ {
+		keyPart := keyParts[i]
 
-		if _, ok := curm[key_part]; ok {
-			curm = curm[key_part].(MapStr)
+		if _, ok := mapp[keyPart]; ok {
+			mapp = mapp[keyPart].(MapStr)
 		} else {
-			return false
+			return &m
 		}
 	}
-	delete(curm, key_parts[key_len-1])
-	logp.Debug("filter", "map=%v", curm)
-	return true
+	delete(mapp, keyParts[keysLen-1])
+	return &m
+}
+
+func (m MapStr) Copy(to MapStr, key string) *MapStr {
+	keyParts := strings.Split(key, ".")
+	keysLen := len(keyParts)
+
+	mapp := m
+	newmapp := to
+	for i := 0; i < keysLen-1; i++ {
+		keyPart := keyParts[i]
+
+		if _, ok := mapp[keyPart]; ok {
+			if _, already := newmapp[keyPart]; !already {
+				newmapp[keyPart] = MapStr{}
+			}
+			mapp = mapp[keyPart].(MapStr)
+			newmapp = newmapp[keyPart].(MapStr)
+		} else {
+			return &to
+		}
+	}
+
+	if _, ok := mapp[keyParts[keysLen-1]]; ok {
+		newmapp[keyParts[keysLen-1]] = mapp[keyParts[keysLen-1]]
+	}
+	return &to
 }
 
 // Checks if a timestamp field exists and if it doesn't it adds

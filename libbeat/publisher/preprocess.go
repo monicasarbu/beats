@@ -62,9 +62,7 @@ func (p *preprocessor) onMessage(m message) {
 		}
 
 		// filter the event
-		if err := publisher.Filters.Filter(&event); err != nil {
-			logp.Err("Failed to filter the event: %v", err)
-		}
+		publisher.Filters.Filter(&event)
 
 		if logp.IsDebug("publish") {
 			PrintPublishEvent(event)

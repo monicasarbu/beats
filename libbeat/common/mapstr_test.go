@@ -43,6 +43,66 @@ func TestMapStrUnion(t *testing.T) {
 	assert.Equal(c, MapStr{"a": 1, "b": 3, "c": 4})
 }
 
+func TestMapStrCopy(t *testing.T) {
+	assert := assert.New(t)
+
+	m := &MapStr{
+		"a": MapStr{
+			"a1": 2,
+			"a2": 3,
+		},
+		"b": 2,
+		"c": MapStr{
+			"c1": 1,
+			"c2": 2,
+			"c3": MapStr{
+				"c31": 1,
+				"c32": 2,
+			},
+		},
+	}
+	c := &MapStr{}
+
+	c = m.Copy(*c, "a")
+	assert.Equal(&MapStr{"a": MapStr{"a1": 2, "a2": 3}}, c)
+
+	c = m.Copy(*c, "d")
+	assert.Equal(&MapStr{"a": MapStr{"a1": 2, "a2": 3}}, c)
+
+	c = m.Copy(*c, "c.c1")
+	assert.Equal(&MapStr{"a": MapStr{"a1": 2, "a2": 3}, "c": MapStr{"c1": 1}}, c)
+
+	c = m.Copy(*c, "b")
+	assert.Equal(&MapStr{"a": MapStr{"a1": 2, "a2": 3}, "c": MapStr{"c1": 1}, "b": 2}, c)
+
+	c = m.Copy(*c, "c.c3.c32")
+	assert.Equal(&MapStr{"a": MapStr{"a1": 2, "a2": 3}, "c": MapStr{"c1": 1, "c3": MapStr{"c32": 2}}, "b": 2}, c)
+}
+
+func TestMapStrDelete(t *testing.T) {
+	assert := assert.New(t)
+
+	m := &MapStr{
+		"c": MapStr{
+			"c1": 1,
+			"c2": 2,
+			"c3": MapStr{
+				"c31": 1,
+				"c32": 2,
+			},
+		},
+	}
+
+	c := m.Delete("c.c2")
+	assert.Equal(&MapStr{"c": MapStr{"c1": 1, "c3": MapStr{"c31": 1, "c32": 2}}}, c)
+
+	c = m.Delete("c.c3.c31")
+	assert.Equal(&MapStr{"c": MapStr{"c1": 1, "c3": MapStr{"c32": 2}}}, c)
+
+	c = m.Delete("c")
+	assert.Equal(&MapStr{}, c)
+}
+
 func TestEnsureTimestampField(t *testing.T) {
 
 	type io struct {
