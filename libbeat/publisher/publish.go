@@ -77,12 +77,10 @@ type PublisherType struct {
 }
 
 type ShipperConfig struct {
-	common.EventMetadata  `config:",inline"` // Fields and tags to add to each event.
-	Name                  string
-	Refresh_topology_freq int
-	Ignore_outgoing       bool
-	Topology_expire       int
-	Geoip                 common.Geoip
+	common.EventMetadata `config:",inline"` // Fields and tags to add to each event.
+	Name                 string
+	Ignore_outgoing      bool
+	Geoip                common.Geoip
 
 	// internal publisher queue sizes
 	QueueSize     *int `config:"queue_size"`
@@ -242,29 +240,9 @@ func (publisher *PublisherType) init(
 					hwm,
 					bulkHWM))
 
-			if ok, _ := config.Bool("save_topology", 0); !ok {
-				continue
-			}
-
-			topo, ok := output.(outputs.TopologyOutputer)
-			if !ok {
-				logp.Err("Output type %s does not support topology logging",
-					plugin.Name)
-				return errors.New("Topology output not supported")
-			}
-
-			if topoOutput != nil {
-				logp.Err("Multiple outputs defined to store topology. " +
-					"Please add save_topology = true option only for one output.")
-				return errors.New("Multiple outputs defined to store topology")
-			}
-
-			topoOutput = topo
-			logp.Info("Using %s to store the topology", plugin.Name)
 		}
 
 		publisher.Output = outputers
-		publisher.TopologyOutput = topoOutput
 	}
 
 	if !publisher.disabled {
@@ -273,9 +251,6 @@ func (publisher *PublisherType) init(
 			return errors.New("No outputs are defined. Please define one under the output section.")
 		}
 
-		if publisher.TopologyOutput == nil {
-			logp.Debug("publish", "No output is defined to store the topology. The server fields might not be filled.")
-		}
 	}
 
 	publisher.shipperName = shipper.Name

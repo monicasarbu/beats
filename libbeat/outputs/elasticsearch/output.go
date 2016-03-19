@@ -18,9 +18,9 @@ import (
 )
 
 type elasticsearchOutput struct {
-	index string
-	mode  mode.ConnectionMode
-	topology
+	index   string
+	mode    mode.ConnectionMode
+	clients []mode.ProtocolClient
 }
 
 func init() {
@@ -43,13 +43,13 @@ var (
 )
 
 // NewOutput instantiates a new output plugin instance publishing to elasticsearch.
-func New(cfg *ucfg.Config, topologyExpire int) (outputs.Outputer, error) {
+func New(cfg *ucfg.Config) (outputs.Outputer, error) {
 	if !cfg.HasField("bulk_max_size") {
 		cfg.SetInt("bulk_max_size", 0, defaultBulkSize)
 	}
 
 	output := &elasticsearchOutput{}
-	err := output.init(cfg, topologyExpire)
+	err := output.init(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,6 @@ func New(cfg *ucfg.Config, topologyExpire int) (outputs.Outputer, error) {
 
 func (out *elasticsearchOutput) init(
 	cfg *ucfg.Config,
-	topologyExpire int,
 ) error {
 	config := defaultConfig
 	if err := cfg.Unpack(&config); err != nil {
@@ -95,29 +94,6 @@ func (out *elasticsearchOutput) init(
 	}
 
 	loadTemplate(config.Template, clients)
-
-	if config.SaveTopology {
-		err := out.EnableTTL()
-		if err != nil {
-			logp.Err("Fail to set _ttl mapping: %s", err)
-			// keep trying in the background
-			go func() {
-				for {
-					err := out.EnableTTL()
-					if err == nil {
-						break
-					}
-					logp.Err("Fail to set _ttl mapping: %s", err)
-					time.Sleep(5 * time.Second)
-				}
-			}()
-		}
-	}
-
-	out.TopologyExpire = 15000
-	if topologyExpire != 0 {
-		out.TopologyExpire = topologyExpire * 1000 // millisec
-	}
 
 	out.mode = m
 	out.index = config.Index
