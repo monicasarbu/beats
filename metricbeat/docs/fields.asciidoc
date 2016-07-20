@@ -2402,6 +2402,37 @@ Total space (used plus free).
 
 
 [float]
+== load Fields
+
+Load averages.
+
+
+
+[float]
+=== system.load.1
+
+type: half_float
+
+Load average for the last minute.
+
+
+[float]
+=== system.load.5
+
+type: half_float
+
+Load average for the last 5 minutes.
+
+
+[float]
+=== system.load.15
+
+type: half_float
+
+Load average for the last 15 minutes.
+
+
+[float]
 == memory Fields
 
 `memory` contains local memory stats.

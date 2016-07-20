@@ -1432,6 +1432,23 @@
                   type: long
                   description: >
                     Total space (used plus free).
+        - name: load
+          type: group
+          description: >
+            Load averages.
+          fields:
+            - name: "1"
+              type: half_float
+              description: >
+                Load average for the last minute.
+            - name: "5"
+              type: half_float
+              description: >
+                Load average for the last 5 minutes.
+            - name: "15"
+              type: half_float
+              description: >
+                Load average for the last 15 minutes.
         - name: memory
           type: group
           description: >

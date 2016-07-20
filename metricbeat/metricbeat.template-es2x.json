@@ -1262,6 +1262,19 @@
                 }
               }
             },
+            "load": {
+              "properties": {
+                "1": {
+                  "type": "float"
+                },
+                "15": {
+                  "type": "float"
+                },
+                "5": {
+                  "type": "float"
+                }
+              }
+            },
             "memory": {
               "properties": {
                 "actual": {

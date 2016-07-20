@@ -8,6 +8,7 @@ import (
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/elastic/beats/metricbeat/module/system"
+	"github.com/elastic/beats/metricbeat/module/system/load"
 	"github.com/elastic/beats/metricbeat/module/system/memory"
 	sigar "github.com/elastic/gosigar"
 )
@@ -158,7 +159,7 @@ func (cpu *CPU) AddCpuPercentageList(t2 []CpuTimes) {
 }
 
 func (cpu *CPU) GetSystemStats() (common.MapStr, error) {
-	loadStat, err := GetSystemLoad()
+	loadStat, err := load.GetSystemLoad()
 	if err != nil {
 		logp.Warn("Getting load statistics: %v", err)
 		return nil, err
@@ -221,25 +222,4 @@ func (cpu *CPU) GetCoreStats() ([]common.MapStr, error) {
 	}
 
 	return events, nil
-}
-
-type SystemLoad struct {
-	Load1  float64 `json:"load1"`
-	Load5  float64 `json:"load5"`
-	Load15 float64 `json:"load15"`
-}
-
-func GetSystemLoad() (*SystemLoad, error) {
-
-	concreteSigar := sigar.ConcreteSigar{}
-	avg, err := concreteSigar.GetLoadAverage()
-	if err != nil {
-		return nil, err
-	}
-
-	return &SystemLoad{
-		Load1:  avg.One,
-		Load5:  avg.Five,
-		Load15: avg.Fifteen,
-	}, nil
 }
