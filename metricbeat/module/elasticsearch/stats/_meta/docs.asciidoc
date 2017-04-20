@@ -1,3 +1,5 @@
 === elasticsearch stats MetricSet
 
-This is the stats metricset of the module elasticsearch. This provides statistics across all indices.
+This is the stats metricset of the module elasticsearch. It interrogates the
+https://www.elastic.co/guide/en/elasticsearch/reference/master/indices-stats.html[Indices API endpoint] of
+Elasticsearch to get statistics on different operations happening on an index.
