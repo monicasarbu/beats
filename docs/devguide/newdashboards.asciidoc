@@ -1,8 +1,8 @@
 [[new-dashboards]]
 == Creating New Kibana Dashboards for a Beat
 
-NOTE: Starting with Beats 5.0.0, the Kibana dashboards are not released as part of the Beat package. They are released in a separate
-package called `beats-dashboards`.
+NOTE: Starting with Beats 6.0.0, the Kibana dashboards are released as part of the Beat package. They are not released in a separate
+package.
 
 When contributing to Beats development, you may want to add new dashboards or modify existing ones. To make this easier,
 we've created an `import_dashboards` script that you can use to <<import-dashboards,import the dashboards>> from an
